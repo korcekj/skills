@@ -1,6 +1,6 @@
 ---
 name: node-backend-testing
-description: Testing strategy and workflow guide for Node.js backends using Mocha, Chai, Supertest, Rewiremock, and Docker Compose. Covers test execution, mocking and integration test authoring.
+description: Use when a task in a Node.js or TypeScript backend involves adding, updating, running, debugging, or reviewing tests, especially Mocha, Chai, Supertest, Rewiremock, or Docker Compose based integration tests for API endpoints, webhooks, schedulers, or services. Covers test execution, mocking, and integration test authoring.
 ---
 
 # Node Backend Testing
