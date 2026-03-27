@@ -16,6 +16,20 @@ Or install from a full repository URL:
 npx skills add https://github.com/korcekj/skills --skill <skill>
 ```
 
+## Update
+
+Check for available updates to installed skills:
+
+```bash
+npx skills check
+```
+
+Update installed skills to the latest versions:
+
+```bash
+npx skills update
+```
+
 ## Available Skills
 
 | Skill | Description                                                                                                                                                            | Install                                    |
