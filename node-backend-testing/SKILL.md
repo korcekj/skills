@@ -1,6 +1,6 @@
 ---
 name: node-backend-testing
-description: Use when a task in a Node.js or TypeScript backend involves adding, updating, running, debugging, or reviewing tests, especially Mocha, Chai, Supertest, Rewiremock, or Docker Compose based integration tests for API endpoints, webhooks, schedulers, or services. Covers test execution, mocking, and integration test authoring.
+description: Use after editing a Node.js/TypeScript backend file (controller, repository, service, scheduler) or when the user asks to run, verify, or debug tests — e.g. "run the tests", "make sure tests pass", "verify the change", "before commit/push". Stack — Mocha, Chai, Supertest, Rewiremock.
 ---
 
 # Node Backend Testing
@@ -19,13 +19,13 @@ The `dev_test` service starts the test PostgreSQL database, applies migrations, 
 
 ## Test Stack
 
-| Tool | Purpose |
-| --- | --- |
-| Mocha | Test runner (parallel, 2 jobs, 30 s timeout, dot reporter) |
-| Chai | Assertion library (`expect`) |
-| Supertest | HTTP endpoint testing |
-| Superwstest | WebSocket endpoint testing (when applicable) |
-| Rewiremock | Module-level service mocking |
+| Tool        | Purpose                                                    |
+| ----------- | ---------------------------------------------------------- |
+| Mocha       | Test runner (parallel, 2 jobs, 30 s timeout, dot reporter) |
+| Chai        | Assertion library (`expect`)                               |
+| Supertest   | HTTP endpoint testing                                      |
+| Superwstest | WebSocket endpoint testing (when applicable)               |
+| Rewiremock  | Module-level service mocking                               |
 
 Configuration lives in `.mocharc.js`. Global setup and teardown is in `tests/global.ts`.
 
@@ -43,31 +43,33 @@ Configuration lives in `.mocharc.js`. Global setup and teardown is in `tests/glo
 Each test file makes real HTTP calls via Supertest against a live app instance backed by an isolated test database. No manual per-test DB cleanup is needed — the global hooks handle it.
 
 ```typescript
-import supertest from 'supertest'
-import { expect } from 'chai'
-import app from '../../../../../src/app'
+import supertest from 'supertest';
+import { expect } from 'chai';
+import app from '../../../../../src/app';
 
-const endpoint = '/api/v1/resource'
+const endpoint = '/api/v1/resource';
 
 describe(`[POST] ${endpoint}`, () => {
-  const request = supertest(app)
+  const request = supertest(app);
 
   it('returns 401 when unauthenticated', async () => {
-    const response = await request.post(endpoint).send({})
-    expect(response.status).to.eq(401)
-  })
+    const response = await request.post(endpoint).send({});
+    expect(response.status).to.eq(401);
+  });
 
   it('returns 200 with valid payload', async () => {
     const response = await request
       .post(endpoint)
       .set('Authorization', `Bearer ${token}`)
-      .send({ /* ... */ })
-    expect(response.status).to.eq(200)
+      .send({
+        /* ... */
+      });
+    expect(response.status).to.eq(200);
     // Validate response shape against the controller's responseSchema when available
-    const { error } = responseSchema.validate(response.body)
-    expect(error).to.eq(undefined)
-  })
-})
+    const { error } = responseSchema.validate(response.body);
+    expect(error).to.eq(undefined);
+  });
+});
 ```
 
 Always cover:
@@ -108,7 +110,9 @@ External and third-party services are mocked at module level via Rewiremock. Moc
 3. Register in `tests/global.ts`:
 
    ```typescript
-   rewiremock('../src/services/myService').by('../src/services/__mocks__/myService')
+   rewiremock('../src/services/myService').by(
+     '../src/services/__mocks__/myService',
+   );
    ```
 
 ## Integration Test Authoring Workflow
