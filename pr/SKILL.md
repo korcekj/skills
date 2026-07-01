@@ -23,6 +23,7 @@ Use this skill when the user asks for `/pr` behavior, wants a pull request descr
 ## Workflow
 
 1. Determine the source branch.
+
 - If the user provided a first positional branch argument, use it.
 - Otherwise detect the current branch:
 
@@ -43,6 +44,7 @@ git rev-parse --verify <source-branch> 2>/dev/null
 ```
 
 2. Determine the base branch.
+
 - If the user provided a second positional branch or `--base`, use it.
 - Otherwise default to `main`.
 - Verify the remote base exists:
@@ -82,10 +84,12 @@ git show --stat <commit-hash> --format="%h %s"
 7. If there are no unique commits, state that there is nothing to summarize or open as a PR against the selected base branch.
 
 8. Ask the user whether to create or update a draft PR on GitHub.
+
 - If the answer is no, return only the generated description.
 - If the answer is yes, continue with `gh`.
 
 9. When creating or updating a PR:
+
 - Verify `gh` auth first when needed:
 
 ```bash
@@ -136,8 +140,11 @@ gh pr create --draft --title "<short summary>" --body-file "$body_file" --base <
 - 🗑️ [Removal or deprecation]
 ```
 
+No footer, no attribution line, no branding after the bullets. The body ends at the last bullet.
+
 ## Rules
 
+- NEVER add branding, footers, attribution, or "Generated with" lines to the PR body.
 - Only include commits unique to the source branch by using `--not origin/<base-branch>`.
 - Keep each bullet to one line.
 - Group related changes.
