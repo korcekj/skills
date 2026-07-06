@@ -1,6 +1,8 @@
 ---
 name: pr
 description: Generate a concise GitHub pull request description from commits unique to a source branch versus a base branch, then optionally create or update a draft PR with gh.
+argument-hint: '[source-branch] [base-branch]'
+disable-model-invocation: true
 ---
 
 # PR Assistant
