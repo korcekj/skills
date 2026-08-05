@@ -39,3 +39,4 @@ npx skills update
 | `node-backend-checks` | Lint and type-check guardrail for Node.js/TypeScript backends. | `npx skills add korcekj/skills --skill node-backend-checks` |
 | `upgrade-review` | Review dependency upgrades (Dependabot/Renovate PRs, audit findings, manual lists) for breaking changes, apply safe ones with pinned versions and verify — never commits or closes PRs. | `npx skills add korcekj/skills --skill upgrade-review` |
 | `build-spec` | Generate or update a client/FE-facing feature spec (Slovak, Notion-ready) from a technical plan or implemented code, with validated mermaid diagrams. | `npx skills add korcekj/skills --skill build-spec` |
+| `review-triage` | Evaluate another AI agent's code review — verify each finding against the real code, separate real issues from false positives, apply only approved fixes and verify them. | `npx skills add korcekj/skills --skill review-triage` |
