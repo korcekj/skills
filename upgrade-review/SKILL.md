@@ -1,6 +1,6 @@
 ---
 name: upgrade-review
-description: Review proposed dependency upgrades from any source — Dependabot or Renovate PRs, npm/pnpm/yarn audit findings, an outdated check, or a manual list of packages. Validates changelogs and real breaking-change impact against the codebase, respects the project's configured minimum release age, applies safe upgrades with pinned exact versions and verifies them with the project's install, type-check, lint and test scripts. Never commits, pushes, merges or closes anything.
+description: Review proposed dependency upgrades from any source — Dependabot or Renovate PRs, npm/pnpm/yarn audit findings, an outdated check, or a manual list of packages. Validates changelogs and real breaking-change impact against the codebase, respects the project's configured minimum release age, applies safe upgrades with pinned exact versions and verifies them with the project's install, type-check, lint and test scripts, then boots the app and its workers to check they start cleanly. Never commits, pushes, merges or closes anything.
 argument-hint: '<pr-url...> | <package...> | audit | outdated'
 disable-model-invocation: true
 ---
@@ -30,6 +30,8 @@ Identify the package manager from lockfiles (`package-lock.json` → npm, `pnpm-
 For every `package: current → target`:
 
 - **Semver jump.** Patch/minor from a well-maintained package is usually low risk; a major always needs changelog evidence.
+- **Runtime match.** Check engine requirements against the Node version the project actually runs — `.nvmrc`, `engines`, the Dockerfile's `FROM node:<x>`. `@types/*` follow the runtime they describe: `@types/node` stays on the project's Node major, not the newest one.
+- **Where it runs.** Say whether the package is a runtime dependency or dev/build-only. It changes how urgent an advisory is, not whether the upgrade is safe.
 - **Changelog / release notes.** Read them for every version between current and target — `gh api repos/<owner>/<repo>/releases`, the package's `CHANGELOG.md`, or `npm view <pkg>` for repository links. Look specifically for: removed/renamed APIs, changed defaults, dropped Node/engine support, peer-dependency shifts, ESM/CJS packaging changes.
 - **Real impact, not theoretical.** Grep the codebase for how the package is actually used. A breaking change in an API the project never touches is not a blocker — but say so explicitly in the verdict.
 - **Minimum release age — resolve from project config, never assume.** The project may already define its policy; look for it before applying any default, in this order:
@@ -46,6 +48,8 @@ For every `package: current → target`:
 
 Look at `overrides` / `resolutions` in `package.json`. For each one, decide whether the upgrade makes it obsolete — stale overrides hide future vulnerable versions and confuse audits. Flag removals; don't remove silently.
 
+When an audit advisory hits a **transitive** package, prefer bumping the direct dependency that pulls it in (`npm explain <pkg>`, `pnpm why <pkg>`, `yarn why <pkg>`). Add an override only when no parent release fixes it, and name the advisory it exists for in the report — that is what lets the next review know when it can go.
+
 ### 4. Verdict table — before touching anything
 
 Present a table and pause here only if any verdict is ambiguous; otherwise continue.
@@ -59,16 +63,31 @@ Present a table and pause here only if any verdict is ambiguous; otherwise conti
 ### 5. Apply the safe ones
 
 - Pin **exact versions** (no `^`/`~`) in `package.json`, matching the project's existing pinning style.
-- Regenerate the lockfile with the detected package manager.
+- Install with the package manager's exact-pin command (`npm install <pkg>@<version> --save-exact`, `pnpm add -E`, `yarn add -E`) rather than editing `package.json` and regenerating the whole lockfile — a full regeneration also moves unrelated transitive versions.
+- Read the lockfile diff. Changes outside the upgraded packages' dependency trees are a finding: explain them or undo them.
 - If an override became obsolete and the user agreed, remove it.
 
 ### 6. Verify
 
-Run, via the project's documented scripts: install, type-check, lint, tests. All must pass. If something fails, either fix it as part of the upgrade (when trivial and clearly caused by the bump) or revert that single upgrade and downgrade its verdict — never leave the working tree broken.
+Run, via the project's documented scripts: install, type-check, lint, tests (`node-backend-checks` / `node-backend-testing` where the project matches — e.g. the suite through `docker compose up dev_test`). All must pass. If something fails, either fix it as part of the upgrade (when trivial and clearly caused by the bump) or revert that single upgrade and downgrade its verdict — never leave the working tree broken.
+
+"That single upgrade" has to be known, not guessed. With several bumps applied, a failure whose stack trace does not name one package is bisected: revert half, re-run, repeat. Majors are cheapest to verify one at a time.
+
+Then **boot the app**. Tests load the code in-process; they miss what upgrades typically break at startup — ESM/CJS packaging, native modules, changed config defaults, a worker that crashes on its first tick. When the project runs through Docker Compose:
+
+1. Pick the long-running app services from `compose.yaml` / `docker-compose.yml` — typically `dev`, plus `scheduler` or other workers if they exist. Skip one-shot services (`install`, migrations, `dev_test`).
+2. `docker compose ps` first. If a service is already running, ask before restarting it — the user may be working against it.
+3. Make sure the containers use the **new** lockfile: if `node_modules` lives in a volume or is installed by an `install` service, run that or rebuild — otherwise the boot check tests the old dependencies.
+4. `docker compose up -d <services>` and wait for ready — a healthcheck, a "listening on" or "started" log line — within a few minutes. A container that exits or restarts is a FAIL.
+5. Read `docker compose logs <services>` from this start: errors, unhandled rejections, new deprecation warnings, connection retries. Workers without HTTP pass when they start and stay up for about 30 seconds without errors.
+6. For an HTTP service, probe a health endpoint if the project has one, otherwise one authenticated route without a token — `401`/`403` proves the server and middleware run, `500` is a finding.
+7. Stop only what you started (`docker compose stop <services>`). Never `down -v` — that deletes the dev database.
+
+A boot failure clearly caused by one bump is handled like a failing test: fix it if trivial, otherwise revert that upgrade and downgrade its verdict. No Compose setup → say the boot check was skipped and why; skipped is never PASS.
 
 ### 7. Report
 
-Final summary: what was applied, what was left and why, what to re-check later (wait verdicts), which bot PRs the user can now close.
+Final summary: what was applied, what was left and why, the boot check result (services started, probes, anything unusual in the logs), what to re-check later (wait verdicts), which bot PRs the user can now close.
 
 ## Hard boundaries
 
