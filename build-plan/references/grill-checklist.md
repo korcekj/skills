@@ -103,4 +103,4 @@ Ordered roughly by how expensive the mistake is to undo.
 - Smallest slice that is independently shippable and verifiable.
 - Dependency order — what must land before what, and what is waiting on someone else.
 - Is anything gated behind a client deliverable, a CRM deployment, or a Legal sign-off?
-- What does "done" mean for this feature, in one sentence?
+- What does "done" mean for this feature, in one sentence — and for each Rollout item, what check proves it (its `Done when`)?

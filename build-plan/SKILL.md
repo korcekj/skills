@@ -118,13 +118,15 @@ Once parts are implemented, record only what reads as arbitrary without the reas
 
 Prose for anything a table row cannot hold: the ordering that matters, the race that is accepted, the field that is required even though it looks redundant. One section per subsystem that has non-obvious reasoning.
 
-## Rollout (gated — implement + validate ONE item, stop for review)
+## Rollout (gated — each item is implemented, validated and reviewed before the next)
 
-| # | Item | State |
-| --- | --- | --- |
-| 1 | <Smallest shippable slice, in dependency order> | ⬜ |
+| # | Item | Done when | State |
+| --- | --- | --- | --- |
+| 1 | <Smallest shippable slice, in dependency order> | <The observable check that proves it> | ⬜ |
 
 States: ⬜ pending · ✅ done · ⏸ skipped (say why) · 🗑️ dropped (say why).
+
+`Done when` names something a reviewer can verify without asking you: a test that asserts the behaviour, a command that passes, a value visible in the data. "Works as described" is not a criterion.
 
 ## Open
 
@@ -153,4 +155,4 @@ Type-check, lint and the suite. Then: what the automated tests cover, what they 
 
 ## After the plan
 
-Offer, do not do: implementation is a separate decision, and the gated rollout exists so the user reviews each slice. When the feature is implemented and stabilised, `build-spec` turns this plan into the Slovak FE/client spec.
+Offer, do not do: implementation is a separate decision, and the gated rollout exists so the user reviews each slice. `implement-plan` implements the Rollout items from this plan. When the feature is implemented and stabilised, `build-spec` turns this plan into the Slovak FE/client spec.
