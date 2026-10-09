@@ -7,7 +7,7 @@ Ordered roughly by how expensive the mistake is to undo.
 ## 1. Scope and ownership
 
 - What is explicitly **not** in this feature, and where does that boundary get enforced?
-- Which parts are ours, which are the client's, CRM's, FE's, a third party's? Every cross-boundary item needs a named owner.
+- Which parts are ours, which are the client's, CRM's, FE's, a third party's? Every cross-boundary item that affects our side needs a named owner. Another team's purely internal concern does not belong in the plan.
 - What must ship together vs. what can be a fast-follow? Does anything half-shipped leave the user in a broken state?
 - Is there an existing feature this duplicates or should extend instead?
 
