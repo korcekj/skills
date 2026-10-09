@@ -1,111 +1,86 @@
 ---
 name: changelog
-description: Generate a per-release changelog of backend API contract changes for FE developers (endpoints, request/response shapes, FE-visible enums, payloads, breaking changes) from the git diff between release tags, link each ticket to Jira and its [BE] Notion spec, then post it to Slack after the user approves the draft.
-argument-hint: '<#slack-channel> [version | from..to]'
+description: Generate a per-release changelog of backend API contract changes for FE developers (endpoints, request/response shapes, FE-visible enums, payloads, breaking changes) from the git diff between release tags, link each ticket to Jira and its [BE] Notion spec, then post it to Slack after the user approves the draft — or return it for manual pasting when no channel is given.
+argument-hint: '[#slack-channel] [version | from..to]'
 disable-model-invocation: true
 ---
 
 # Changelog
 
-Tell FE developers what a backend release changes **in the contract they build against**. The source of truth is the code diff between two releases, not ticket titles — a ticket can ship zero contract changes, and an "internal" ticket can quietly change a response.
+Tell FE developers what a backend release changes **in the contract they build against**. The code diff between two releases is the source of truth, not ticket titles: a ticket can ship zero contract changes, and an "internal" ticket can quietly change a response. The reader is a FE developer scanning Slack — every line should answer "do I need to change something?".
 
 ## Inputs
 
-Resolve each value; ask only for what cannot be found.
-
-- **Slack channel** (required): the `#channel` argument. Missing → ask before drafting.
-- **Range**
-  - `from..to` argument (git range syntax, either side a tag or any ref) → use both as given.
-  - Single `vX.Y.Z` / `X.Y.Z` / ref argument → that is `to`. No argument → tag `v<package.json version>`; if that tag does not exist yet, use `HEAD` and say so in the draft review.
-  - `from` when not given: the previous tag, `git describe --tags --abbrev=0 <to>^`.
-  - Run `git fetch --tags origin` first. Diffing tag to tag stays correct when release branches merge into each other.
-- **Version label**: the title is always `[BE] v<X.Y.Z>`, taken from the `to` tag (or the `package.json` version when `to` is not a tag).
+- **Slack channel** — the `#channel` argument. Without it the skill runs in draft-only mode: nothing is posted, the text is returned for manual pasting.
+- **Range** — `from..to` as given; a single version or ref is `to`; nothing → the tag `v<package.json version>`, or `HEAD` when that tag does not exist yet (mention it in the review). A missing `from` is the previous tag (`git describe --tags --abbrev=0 <to>^`). Fetch tags first; diffing tag to tag stays correct even when release branches merge into each other.
+- **Title** — `[BE] v<X.Y.Z>` from the `to` version.
 
 ## Workflow
 
-### 1. Collect the diff
+### 1. Find contract changes
 
-```bash
-git log --no-merges --format='%h %s' <from>..<to>
-git diff --stat <from>..<to>
-git diff <from>..<to> -- <API, schema, enum, payload paths>
-```
-
-Read the project's architecture notes first so you know where routes, request/response schemas, shared schemas, enums and push/deeplink payloads live. For Express + Joi projects that is typically router `index.ts` files, the `requestSchema` / `responseSchema` exports of each handler, shared schema modules and the enums file.
-
-### 2. Find contract changes
+Read the project's architecture notes to learn where routes, request/response schemas, shared schemas, enums and push/deeplink payloads live, then read the diff of those paths.
 
 Report a change only when a client can observe it:
 
-- **Endpoints**: added, removed, renamed paths or methods; changed auth or permission requirements.
-- **Request** (body, query, params, headers): fields added, removed or renamed; required ↔ optional; type, format, nullability, allowed values, limits, defaults.
-- **Response**: the same, plus changed status codes and new error codes or messages the client can branch on.
-- **Shared schemas**: trace every endpoint that uses a changed shared schema (search the imports) and report the change **on each endpoint**, not on the schema.
-- **Enums**: only when the enum is (directly or through a shared schema) part of a request or response, push payload or deeplink. Then report the added or removed values on the affected endpoints. Enums used only internally are not mentioned.
-- **Push notifications, deeplinks, emailed links pointing to FE routes**: added or removed types, changed payload fields, new or changed URL shapes.
-- **Behaviour with the same schema**: new pagination or sorting defaults, filter semantics, `404` instead of an empty list, and similar. One short line describing the observable difference.
+- **Endpoints** — added, removed or renamed paths and methods; changed auth or permissions.
+- **Request** (body, query, params, headers) — fields added, removed or renamed; required ↔ optional; type, format, nullability, allowed values, limits, defaults.
+- **Response** — the same, plus status codes and error codes the client can branch on.
+- **Shared schemas** — report the change on every endpoint that uses the schema, because FE thinks in endpoints, not in backend modules.
+- **Enums** — only when they reach the wire (request, response, push payload, deeplink); report the changed values on the affected endpoints.
+- **Push and deeplinks** — only when the client must parse or route something new.
+- **Behaviour with the same schema** — e.g. new sorting or pagination defaults, different filter semantics, `404` instead of an empty list.
 
-Skip everything else: refactors, logging, monitoring, DB, CRM/third-party internals, tests, tooling, renamed internals with an identical wire shape, and server-side side effects the client does not handle — a notification, email or in-app item now sent on another trigger, or server-rendered copy changes. Push and deeplink changes count only when the client must parse or route something new.
+Leave out anything the client does not handle: refactors, logging, monitoring, DB, third-party internals, tests, tooling, internal renames with an identical wire shape, notifications or emails sent on a new trigger, and server-rendered copy.
 
-If a handler is mounted under several surfaces (for example mobile and web), list every exposed path in one bullet.
+**Breaking** means an existing client request can now fail, or an existing client can misread a response: a removed or renamed field, endpoint or enum value; optional → required in a request; required → optional or nullable in a response; a type change; narrowed allowed values; stricter auth.
 
-**Breaking** = an existing client request can now fail, or an existing client can misread a response: removed or renamed field, endpoint or enum value; optional → required in a request; required → optional or nullable in a response; type change; narrowed allowed values; stricter auth.
+### 2. Attribute to tickets and specs
 
-### 3. Attribute to tickets
+- Map each change to its commits (`git log <from>..<to> -- <file>`) and read the ticket key from the commit subject (`ABC-123: …`). Changes without a key go under `Other`; tickets without contract changes are dropped.
+- Fetch summaries, issue types and descriptions in one Jira query (Atlassian MCP). Without Jira, fall back to the commit subjects.
+- The spec link lives on that same ticket: look for Notion URLs in its remote links and description, fetch them (Notion MCP), and keep the pages titled `[BE] …` — the prefix marks backend technical specs; other pages (business specs, change requests) are not what FE should build against. No `[BE]` page → no spec line; flag the ticket in the review so the link can be added.
 
-- Map each change to its commits: `git log --no-merges --format='%h %s' <from>..<to> -- <file>`, and read the ticket key from the commit subject (`ABC-123: …`).
-- Fetch summaries, issue types and descriptions in one Jira query (Atlassian MCP, `key in (…)`). If Jira is unavailable, fall back to the commit subjects.
-- Block title = the Jira summary translated to short English, without bracket prefixes like `[BE]`.
-- Changes without a ticket key go under an `Other` group.
-- Tickets without contract changes are left out entirely.
+### 3. Draft
 
-### 4. Link specs
-
-The spec link lives on the ticket from the commit subject itself — no parent or epic lookup.
-
-1. Collect Notion URLs from the ticket's remote links ("Link web page", Atlassian MCP) and its description.
-2. Fetch each candidate page (Notion MCP) and keep the one whose title starts with `[BE]`. Several `[BE]` pages → link all of them.
-3. Ticket without a `[BE]` link → leave the spec line out and list the ticket in the draft review, so the link can be added. Never link a non-`[BE]` page or a search guess.
-
-### 5. Draft
-
-Slack mrkdwn — `*bold*`, `<url|text>` links, backticks for paths and fields. English.
+Slack mrkdwn in English:
 
 ```
-*[BE] v0.0.1*
+*[BE] v1.4.0*
 
-🆕 *<https://jira/browse/ACLD-1016|ACLD-1016> – Transaction filters*
-  • `GET /api/mobile/v1/transactions/filters` – new endpoint
-  • `GET /api/mobile/v1/transactions` – new query param `productType` (optional, values `FUND`, `BOND`)
-  📄 Spec: <https://notion/...|[BE] Transactions>
+🆕 *<https://jira/browse/ABC-101|ABC-101> – Order filters*
+  • `GET /api/v1/orders/filters`, `GET /api/web/orders/filters` – new endpoint, returns `statuses[]`, `types[]`
+  • `GET /api/v1/orders` – new query param `type` (optional, one or more `ORDER_TYPE` values)
+  📄 Spec: <https://notion/...|[BE] Orders>
 
-🐛 *<https://jira/browse/ACLD-1020|ACLD-1020> – Fix investor detail*
-  • `GET /api/mobile/v1/investor` – `phone` is now `null` when missing (was empty string) ⚠️
+🔧 *<https://jira/browse/ABC-102|ABC-102> – Profile cleanup*
+  • `GET /api/v1/profile` – removed `nickname` ⚠️
 
 ⚠️ Breaking:
-  • `GET /api/mobile/v1/investor` – `phone` nullable
+  • `GET /api/v1/profile` – removed `nickname`
 ```
 
-- One block per ticket. The emoji follows the contract change, not the Jira issue type: 🐛 Jira Bug; otherwise 🆕 when the ticket only adds endpoints, fields or values; otherwise 🔧. Order 🆕, 🔧, 🐛.
-- One bullet per endpoint; combine several changes on the same endpoint into one bullet.
-- Mark breaking bullets with ⚠️ and repeat them in the `⚠️ Breaking:` section at the end. No breaking changes → `⚠️ Breaking: none`.
-- No release contract changes at all → say so to the user and do not post.
-- No intro text, no "no FE impact" list, no footer.
+- One block per ticket; title = the Jira summary as short English, without bracket prefixes.
+- Emoji reflects the contract change, not the Jira type: 🐛 for a Jira Bug, 🆕 when the ticket only adds, 🔧 otherwise. Order 🆕, 🔧, 🐛.
+- One bullet per endpoint, merging all its changes; a handler exposed on several surfaces lists every path in the same bullet.
+- Use wire names exactly as the client sees them.
+- Breaking bullets get ⚠️ and are repeated in the closing `⚠️ Breaking:` section (`none` when there are none).
+- Nothing else — no intro, no "no FE impact" list, no footer. If the release has no contract changes, tell the user instead of drafting.
 
-### 6. Review, then post
+### 4. Review and deliver
 
-1. Show the draft in chat, together with what you are unsure of (a change you could not classify, a missing tag, a ticket without a Jira match, a ticket without a `[BE]` spec link).
-2. Ask: post / edit / cancel. **Never post without explicit approval** of the final text.
-3. Post through the Slack MCP as the user: resolve the channel ID by name, send the approved text unchanged, and return the message permalink.
+Show the draft in chat with anything uncertain: unclassified changes, a missing tag, tickets without a Jira match or `[BE]` spec link.
+
+- **With a channel** — ask post / edit / cancel and post only the approved text, unchanged, through the Slack MCP as the user. A post is public and hard to take back, so explicit approval of the final wording is the gate. Return the permalink.
+- **Draft-only** — return the final text in one fenced block. The Slack composer does not render `<url|text>`, so write bare URLs instead: the Jira URL after the block title, `📄 Spec: [BE] Title – <url>`.
 
 ## Rules
 
-- Every bullet must trace back to a concrete diff hunk. Re-read the hunk before writing a bullet; never infer a contract change from a ticket title.
-- Use the wire names (JSON keys, query params, enum values) exactly as the client sees them.
-- Never edit, commit or push anything in the repository.
+- Every bullet traces back to a concrete diff hunk — re-read it before writing; a ticket title is never evidence.
+- The skill is read-only toward the repository: no edits, commits or pushes.
 
-## Usage Examples
+## Usage
 
+- `/changelog 1.4.0` — draft only
 - `/changelog #slack-channel` — current `package.json` version vs the previous tag
-- `/changelog #slack-channel 0.7.1`
-- `/changelog #slack-channel v0.6.7..v0.7.1`
+- `/changelog #slack-channel v1.3.0..v1.4.0`
