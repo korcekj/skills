@@ -72,12 +72,12 @@ Slack mrkdwn in English:
 Show the draft in chat with anything uncertain: unclassified changes, a missing tag, tickets without a Jira match or `[BE]` spec link.
 
 - **With a channel** — ask post / edit / cancel and post only the approved text, unchanged, through the Slack MCP as the user. A post is public and hard to take back, so explicit approval of the final wording is the gate. Return the permalink.
-- **Draft-only** — return the final text in one fenced block. The Slack composer does not render `<url|text>`, so write bare URLs instead: the Jira URL after the block title, `📄 Spec: [BE] Title – <url>`.
+- **Draft-only** — the Slack composer does not render pasted mrkdwn, but it keeps formatting copied from a rendered web page. Write the final draft as HTML to `changelog-v<X.Y.Z>.html` in the session scratchpad (or the OS temp dir): `<meta charset="utf-8">` first, then `<b>` for bold, `<a href>` for links, `<code>` for paths and fields, `<ul><li>` for bullets, `<br>` between blocks. Open it in the browser (`open` / `xdg-open`) and tell the user to select all, copy, and paste into Slack. Return the file path as well.
 
 ## Rules
 
 - Every bullet traces back to a concrete diff hunk — re-read it before writing; a ticket title is never evidence.
-- The skill is read-only toward the repository: no edits, commits or pushes.
+- The skill is read-only toward the repository: no edits, commits or pushes. The draft-only HTML file goes outside the repo.
 
 ## Usage
 
