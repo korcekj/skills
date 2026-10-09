@@ -45,7 +45,7 @@ Report a change only when a client can observe it:
 - **Push notifications, deeplinks, emailed links pointing to FE routes**: added or removed types, changed payload fields, new or changed URL shapes.
 - **Behaviour with the same schema**: new pagination or sorting defaults, filter semantics, `404` instead of an empty list, and similar. One short line describing the observable difference.
 
-Skip everything else: refactors, logging, monitoring, DB, CRM/third-party internals, tests, tooling, renamed internals with an identical wire shape.
+Skip everything else: refactors, logging, monitoring, DB, CRM/third-party internals, tests, tooling, renamed internals with an identical wire shape, and server-side side effects the client does not handle — a notification, email or in-app item now sent on another trigger, or server-rendered copy changes. Push and deeplink changes count only when the client must parse or route something new.
 
 If a handler is mounted under several surfaces (for example mobile and web), list every exposed path in one bullet.
 
@@ -55,6 +55,7 @@ If a handler is mounted under several surfaces (for example mobile and web), lis
 
 - Map each change to its commits: `git log --no-merges --format='%h %s' <from>..<to> -- <file>`, and read the ticket key from the commit subject (`ABC-123: …`).
 - Fetch summaries, issue types and descriptions in one Jira query (Atlassian MCP, `key in (…)`). If Jira is unavailable, fall back to the commit subjects.
+- Block title = the Jira summary translated to short English, without bracket prefixes like `[BE]`.
 - Changes without a ticket key go under an `Other` group.
 - Tickets without contract changes are left out entirely.
 
@@ -85,7 +86,7 @@ Slack mrkdwn — `*bold*`, `<url|text>` links, backticks for paths and fields. E
   • `GET /api/mobile/v1/investor` – `phone` nullable
 ```
 
-- One block per ticket, ordered: 🆕 Story/feature, 🔧 Task/other, 🐛 Bug.
+- One block per ticket. The emoji follows the contract change, not the Jira issue type: 🐛 Jira Bug; otherwise 🆕 when the ticket only adds endpoints, fields or values; otherwise 🔧. Order 🆕, 🔧, 🐛.
 - One bullet per endpoint; combine several changes on the same endpoint into one bullet.
 - Mark breaking bullets with ⚠️ and repeat them in the `⚠️ Breaking:` section at the end. No breaking changes → `⚠️ Breaking: none`.
 - No release contract changes at all → say so to the user and do not post.
