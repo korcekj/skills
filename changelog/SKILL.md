@@ -1,7 +1,7 @@
 ---
 name: changelog
-description: Generate a per-release changelog of backend API contract changes for FE developers (endpoints, request/response shapes, FE-visible enums, payloads, breaking changes) from the git diff between release tags, link each ticket to Jira and its [BE] Notion spec, then post it to Slack after the user approves the draft — or return it for manual pasting when no channel is given.
-argument-hint: '[#slack-channel] [version | from..to]'
+description: Generate a per-release changelog of backend API contract changes for FE developers (endpoints, request/response shapes, FE-visible enums, payloads, breaking changes) from the git diff between release tags (default) or release/vX.Y.Z branches, link each ticket to Jira and its [BE] Notion spec, then post it to Slack after the user approves the draft — or return it for manual pasting when no channel is given.
+argument-hint: '[#slack-channel] [--tags | --releases] [version | from..to]'
 disable-model-invocation: true
 ---
 
@@ -12,7 +12,10 @@ Tell FE developers what a backend release changes **in the contract they build a
 ## Inputs
 
 - **Slack channel** — the `#channel` argument. Without it the skill runs in draft-only mode: nothing is posted, the text is returned for manual pasting.
-- **Range** — `from..to` as given; a single version or ref is `to`; nothing → the tag `v<package.json version>`, or `HEAD` when that tag does not exist yet (mention it in the review). A missing `from` is the previous tag (`git describe --tags --abbrev=0 <to>^`). Fetch tags first; diffing tag to tag stays correct even when release branches merge into each other.
+- **Mode** — `--tags` (default) or `--releases`. A range written with `release/` refs implies `--releases`.
+- **Range** — `from..to` as given; a single version or ref is `to`. Run `git fetch origin --tags` first, then resolve the rest by mode:
+  - **tags** — a version means the tag `v<X.Y.Z>`. Nothing → the tag `v<package.json version>`, or `HEAD` when that tag does not exist yet (mention it in the review). A missing `from` is the previous tag (`git describe --tags --abbrev=0 <to>^`). Diff tag to tag (`git diff <from> <to>`); this stays correct even when release branches merge into each other.
+  - **releases** — compares `release/vX.Y.Z` branches, for a release that is not tagged yet. A version means `origin/release/v<X.Y.Z>`, falling back to the local branch when it is not pushed. Nothing → the current branch when it is a `release/v*` branch, else `release/v<package.json version>`. A missing `from` is the highest `release/v*` branch below `to` by semver (`git branch -a --list '*release/v*'`, dedupe local/remote). Diff with three dots (`git diff <from>...<to>`): two release branches often live in parallel, and a two-dot diff would show the older branch's unmerged fixes as reverts in the newer one. Use the same `<from>..<to>` for `git log` attribution.
 - **Title** — `[BE] v<X.Y.Z>` from the `to` version.
 
 ## Workflow
@@ -84,3 +87,6 @@ Show the draft in chat with anything uncertain: unclassified changes, a missing 
 - `/changelog 1.4.0` — draft only
 - `/changelog #slack-channel` — current `package.json` version vs the previous tag
 - `/changelog #slack-channel v1.3.0..v1.4.0`
+- `/changelog --releases` — current `release/v*` branch vs the previous release branch
+- `/changelog #slack-channel --releases 1.4.0` — `release/v1.4.0` vs the previous release branch
+- `/changelog release/v1.3.0..release/v1.4.0` — releases mode, implied by the refs
