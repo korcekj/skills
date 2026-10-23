@@ -1,7 +1,7 @@
 ---
 name: build-spec
-description: Generate or update a client/FE-facing feature specification (files/<feature>-spec.md) from a technical plan file or the implemented code. Slovak language, no backend internals, endpoint contracts with request/response examples and error tables, external-system (e.g. CRM) entity contracts, syntax-validated mermaid diagrams, ready to paste into Notion.
-argument-hint: '<feature-name | path/to/feature-plan.md>'
+description: Generate or update a client/FE-facing feature specification (files/<feature>-spec.md) from a technical plan file or the implemented code. Slovak by default (optional ISO 639-1 language code, e.g. en), no backend internals, endpoint contracts with request/response examples and error tables, external-system (e.g. CRM) entity contracts, syntax-validated mermaid diagrams, ready to paste into Notion.
+argument-hint: '<feature-name | path/to/feature-plan.md> [lang=sk]'
 disable-model-invocation: true
 ---
 
@@ -12,6 +12,7 @@ Turn a technical plan (`files/<feature>-plan.md`) or an implemented feature into
 ## Inputs
 
 - A feature name or a path to a plan file. Resolve the plan in the project's `files/` folder (or its equivalent docs folder).
+- Optional language: a two-letter ISO 639-1 code (`sk`, `en`, `de`, `cs`, …) as the last argument. Default `sk`. Reject anything that is not a valid code and ask. The output file is always `<feature>-spec.md`, whatever the language.
 - If a spec for the feature already exists, this is an **update**: sync it with what changed in the plan or implementation, and preserve the user's manual edits — diff mentally against what you would have generated, don't regenerate from scratch.
 - If endpoints are already implemented, the code is the source of truth over the plan — verify routes, schemas and error codes against the actual routers/controllers before writing them into the spec. Same for external-system calls: take entity paths, field names and option-set values from the actual integration client/mappers, not from the plan.
 
@@ -19,7 +20,7 @@ Turn a technical plan (`files/<feature>-plan.md`) or an implemented feature into
 
 Before writing, open one or two existing `*-spec.md` files in the same project and mirror their structure, tone and level of detail. The example below shows the shape; the project's own specs always win on specifics.
 
-**Language**: Slovak. Code, JSON, enum values, headers and endpoint paths stay in English.
+**Language**: the requested language (default Slovak). All prose, headings, section names (`Postup`, `Súvisiace endpointy`, …) and table headers (`Správa`, `Príčina`, …) are written in it. Code, JSON, enum values, headers and endpoint paths stay in English. When existing specs in the project are in a different language, mirror their structure, not their language.
 
 **Audience**: FE developers, the client, and the teams owning external systems we integrate with. That decides what goes in and what stays out:
 
@@ -56,6 +57,8 @@ Mermaid parse errors are the #1 rework cause for these specs. Sequence diagrams 
 Then verify: if `mmdc` (mermaid-cli) is available, render the block to confirm it parses. Otherwise re-read the diagram line by line against the rules above — every arrow line must be exactly `A->>B: plain text`.
 
 ## Example skeleton (concise)
+
+Shown in Slovak; for another language translate every heading, label and table header.
 
 ````markdown
 # Technická špecifikácia
