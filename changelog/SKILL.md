@@ -1,6 +1,6 @@
 ---
 name: changelog
-description: Generate a per-release changelog of backend API contract changes for FE developers (endpoints, request/response shapes, FE-visible enums, payloads, breaking changes) from the git diff between release tags (default) or release/vX.Y.Z branches, link each ticket to Jira and its [BE] Notion spec, then post it to Slack after the user approves the draft — or return it for manual pasting when no channel is given.
+description: Generate a per-release changelog of backend API contract changes for FE developers (endpoints, request/response shapes, FE-visible enums, payloads, breaking changes) from the git diff between release tags (default) or release/vX.Y.Z branches, link each ticket to Jira and its [TS] technical spec, then post it to Slack after the user approves the draft — or return it for manual pasting when no channel is given.
 argument-hint: '[#slack-channel] [--tags | --releases] [version | from..to]'
 disable-model-invocation: true
 ---
@@ -42,7 +42,7 @@ Leave out anything the client does not handle: refactors, logging, monitoring, D
 
 - Map each change to its commits (`git log <from>..<to> -- <file>`) and read the ticket key from the commit subject (`ABC-123: …`). Changes without a key go under `Other`; tickets without contract changes are dropped.
 - Fetch summaries, issue types and descriptions in one Jira query (Atlassian MCP). Without Jira, fall back to the commit subjects.
-- The spec link lives on that same ticket: look for Notion URLs in its remote links and description, fetch them (Notion MCP), and keep the pages titled `[BE] …` — the prefix marks backend technical specs; other pages (business specs, change requests) are not what FE should build against. No `[BE]` page → no spec line; flag the ticket in the review so the link can be added.
+- The spec link lives in that ticket's description (fetch it as markdown; remote links are usually empty). Take the link right after the `[TS]` prefix — markdown escapes it as `\[TS\]`. Without a `[TS]` link, fall back to the only link in the description, but only when its page title starts with `[BE]`. Links to Jira issues, comments and attached images never count. Fetch the page (Notion MCP) and use its title as the link text. No spec → no spec line; flag the ticket in the review.
 
 ### 3. Draft
 
@@ -72,7 +72,7 @@ Slack mrkdwn in English:
 
 ### 4. Review and deliver
 
-Show the draft in chat with anything uncertain: unclassified changes, a missing tag, tickets without a Jira match or `[BE]` spec link.
+Show the draft in chat with anything uncertain: unclassified changes, a missing tag, tickets without a Jira match or spec link, and say when Jira was unreachable, because then every spec line is missing.
 
 - **With a channel** — ask post / edit / cancel and post only the approved text, unchanged, through the Slack MCP as the user. A post is public and hard to take back, so explicit approval of the final wording is the gate. Return the permalink.
 - **Draft-only** — the Slack composer does not render pasted mrkdwn, but it keeps formatting copied from a rendered web page. Write the final draft as HTML to `changelog-v<X.Y.Z>.html` in the session scratchpad (or the OS temp dir): `<meta charset="utf-8">` first, then `<b>` for bold, `<a href>` for links, `<code>` for paths and fields, `<ul><li>` for bullets, `<br>` between blocks. Open it in the browser (`open` / `xdg-open`) and tell the user to select all, copy, and paste into Slack. Return the file path as well.
