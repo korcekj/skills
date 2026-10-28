@@ -9,7 +9,7 @@ disable-model-invocation: true
 
 Take a plan that `build-plan` finished and turn its `## Rollout` into working, validated code — one item at a time, each one through the same loop: **implement → gates → independent review → fix**, until the item meets its "Done when" or the loop gives up with evidence.
 
-You are the **orchestrator**. You do not write the feature code yourself; you schedule items, brief subagents, run the gates, judge the evidence and keep the plan's state honest. Two reasons: the implementer's context fills with file reads you don't need, and you are the one who must be able to say *why* an item is done — which you can only do if you ran the checks yourself instead of trusting a subagent's "tests pass".
+You are the **orchestrator**. You do not write the feature code yourself; you schedule items, brief subagents, run the gates, judge the evidence and keep the plan's state honest. Two reasons: the implementer's context fills with file reads you don't need, and you are the one who must be able to say _why_ an item is done — which you can only do if you ran the checks yourself instead of trusting a subagent's "tests pass".
 
 Three rules carry the whole skill:
 
@@ -25,20 +25,20 @@ Never commit, push, stage, or open a PR. The user reviews the diff and commits.
 - **Items** — `3`, `2-4` or `all` (default: every ⬜ item, in table order). The user usually passes one number.
 - **`--step`** — stop after each item for the user's review instead of continuing to the next.
 
-Skip, and report, any item whose state is not ⬜, and any item with a human owner (e.g. `⬜ owner: Ján` for a manual reseed) — those are not code work.
+Skip, and report, any item whose state is not ⬜, and any item with a human owner (e.g. `⬜ owner: Ján` for a manual reseed or a UAT run) — those are not code work. Never mark a manual check done yourself. If an older plan mixes a manual step into a code item's `Done when`, implement the code part, leave the manual step out of what you claim, and list it in the final report as the user's.
 
 ## Phase 0 — Preflight
 
 Do these in one go and report the result in a few lines:
 
 - **Done criteria per item.** Use the Rollout's `Done when` column. If the plan has none (older plans), derive it from the Decisions and the `## Verification` section that bear on the item, and show the derived criteria to the user before starting — a criterion you invented is an assumption, and the user should get one chance to correct it.
-- **Blockers.** An `## Open` row whose *Blocks* column names a selected item stops that item. Say so, skip it, continue with the rest.
+- **Blockers.** An `## Open` row whose _Blocks_ column names a selected item stops that item. Say so, skip it, continue with the rest.
 - **Gates.** Discover the project's real commands — `package.json` scripts, the README, compose services (`dev_test` for tests, `dev` for the app). Prefer the `node-backend-checks` and `node-backend-testing` skills when the project matches them. Do not invent bare `npx` commands.
 - **Baseline.** Run `scripts/snapshot.sh` (from this skill's directory) in the project root and keep the hash. It is a tree hash of the whole working tree, untracked files included, made without touching the user's index — so `git diff <before> <after>` shows exactly what an item changed even when the tree was dirty when you started. Tell the user if it was dirty.
 
 ## Phase 1 — Schedule
 
-For each selected item, read enough to predict which files it touches (the plan usually names them). Items run **in parallel** only when they are independent in the Rollout order *and* touch no shared file — lockfiles, migrations, shared enums/constants, seeders, shared test helpers and the plan itself count as shared. Everything else runs in sequence. Most rollouts are dependency-ordered, so sequential is the normal case; parallelism is a bonus, not a goal.
+For each selected item, read enough to predict which files it touches (the plan usually names them). Items run **in parallel** only when they are independent in the Rollout order _and_ touch no shared file — lockfiles, migrations, shared enums/constants, seeders, shared test helpers and the plan itself count as shared. Everything else runs in sequence. Most rollouts are dependency-ordered, so sequential is the normal case; parallelism is a bonus, not a goal.
 
 Parallel implementers share one working tree, so each gets an explicit list of files it owns, and none of them runs the test suite — the suite usually needs a single shared test database, and you run it after the batch.
 
@@ -56,11 +56,15 @@ snapshot S0
 
 **Implement.** Spawn a `general-purpose` subagent with the brief from `references/implementer.md`, filled in. Give it the plan path and let it read the plan itself rather than pasting excerpts — paraphrased decisions lose the reasons that make them binding.
 
-**Gates.** Run them yourself, in order: type-check, lint, then the test suite. Record each as `command → exit code → PASS/FAIL/BLOCKED`. When a test fails, read the failure against the diff: a failure in code the item never touched is likely pre-existing — confirm it against the baseline where cheap, record it, and do not make the implementer chase it.
+**Gates.** Run them yourself, in order: type-check, lint, then the test suite. Record each as `command → exit code → PASS/FAIL/BLOCKED`. When a test fails, read the failure against the diff: a failure in code the item never touched is likely pre-existing — confirm it against the baseline where cheap, record it, and do not make the implementer chase it. Many failures at once in untouched areas usually mean the environment, not the code: check the services and their networking (a container that is up but unreachable, a host port held by another project) before anything else. If another project's container holds a port this project needs, stop it (`docker stop <name>`, never `rm` or `down -v`), then recreate this project's affected service so it attaches cleanly.
 
 **Review.** Take snapshot S1 and spawn a fresh `general-purpose` subagent with the brief from `references/reviewer.md`. It is read-only and has not seen the implementer's reasoning, which is the point: it judges the diff against the plan and the done criteria, not against the implementer's story. Its verdict is `approved` or `changes-required`, with findings that carry severity, file:line, evidence and the plan reference.
 
 **Fix.** Gate failures and `blocker` findings go back to the **same** implementer (SendMessage, so it keeps its context) with the exact output and findings — not your summary of them. Before forwarding a finding, sanity-check it against the code: a reviewer claim that is plainly wrong wastes a round. `minor` findings are not looped; they go into the final report for the user.
+
+Weigh a blocker's fix before looping it. When the fix needs new machinery that the item would not otherwise have — a new error code with locale keys, a test hook in a shared mock, a catch for a rare race — the plan detail behind the blocker may be what is wrong. Ask the user first, with the cost of the fix and the alternative (usually: behave like the sibling flow and amend the Decision).
+
+`decision` findings never go to the implementer. Collect them and put them to the user — at the end of the item, or at once if they change what the item builds. Each one gets the evidence, what changes for whom, and your recommendation. An answer that changes a Decision is recorded like a deviation (below).
 
 A round is: implementer pass → gates → review. **Cap: 3 fix rounds after the first pass.** If the item still is not clean, stop it: leave it ⬜, report the last gate output and open findings, and skip any later item that depends on it. Independent items continue. A loop that is not converging after three rounds is telling you the plan or the item is wrong, and more rounds only spend tokens hiding that.
 
@@ -90,7 +94,9 @@ Concise, one block per item, then the smoke result:
 #2 SETTINGS_KEY + types + seeders — ✅ (2 rounds)
   gates   npm run type-check → 0 PASS · npm run lint → 0 PASS · docker compose up dev_test → 0 PASS
   review  approved @ <snapshot>; round 1 blocker: seeder test env missing `pl` (fixed)
+  decide  src/services/x.ts:43 — retry now applies to every caller of the shared client, not only this flow (recommend: limit to the new call)
   minor   src/types/settings.ts:14 — interface could reuse ISupportContact (left as is)
+  manual  UAT run on the sandbox — yours
   files   src/constants/settings.ts, src/types/settings.ts, src/db/seeders/202603301200-settings.ts
 
 #3 get.contacts response — ⬜ stopped after 3 rounds
@@ -100,4 +106,6 @@ Concise, one block per item, then the smoke result:
 smoke   dev up in 18 s · logs clean · /health → 200 · GET /api/web/investor/contacts → 401 PASS
 ```
 
-End with what is left for the user: review the diff (`git diff <baseline>` covers it all), anything BLOCKED or pre-existing, and the next ⬜ item.
+Keep `decide` lines apart from `minor` ones: a decision is a question the user must answer, a minor is a note they may ignore. Mixing them buries the questions.
+
+End with what is left for the user: open decisions first, then reviewing the diff (`git diff <baseline>` covers it all), manual checks, anything BLOCKED or pre-existing, and the next ⬜ item.

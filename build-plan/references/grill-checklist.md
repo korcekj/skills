@@ -10,6 +10,7 @@ Ordered roughly by how expensive the mistake is to undo.
 - Which parts are ours, which are the client's, CRM's, FE's, a third party's? Every cross-boundary item that affects our side needs a named owner. Another team's purely internal concern does not belong in the plan.
 - What must ship together vs. what can be a fast-follow? Does anything half-shipped leave the user in a broken state?
 - Is there an existing feature this duplicates or should extend instead?
+- Does this mirror an existing flow (a renewal of an onboarding, a second product type of the first)? Then that flow's status codes, error mapping, race handling and test layout are the default. Any deviation is a numbered question with its reason, not a quiet improvement. A new flow that fails differently from its sibling for the same cause is a bug report waiting to happen.
 
 ## 2. Data model and contracts
 
@@ -19,6 +20,8 @@ Ordered roughly by how expensive the mistake is to undo.
 - Are codes global or per-entity? (The classic silent bug: one shared status map where the remote system reuses the same numeric code with different meanings per entity.)
 - What does the API contract look like — request, response, error shape? Is it a discriminated union? Does FE already have an agreed shape?
 - What happens to an unknown/unmapped value — skip and log, or fail? Which one keeps the screen alive?
+- For every value a step needs, where does it come from: already stored locally, in the request, or fetched from a remote system? Name the source in the Decision and prefer what is stored. A Decision that only says "use the existing X" leaves the implementer to add a fetch.
+- New identifiers (enums, members, types, columns, locale keys): grep for collisions and shadowing with existing names before recording them. A rename after implementation starts costs a round in every item that used the name.
 - Pagination: cursor or offset? If merging several sources, can cursors even work?
 
 ## 3. Auth and authorization
@@ -43,6 +46,7 @@ Ordered roughly by how expensive the mistake is to undo.
 - On final failure, fail **open** or **closed**? (Delivering on a channel the user switched off vs. not delivering at all — which is worse here?)
 - Partial success: three of five sub-operations succeeded. Is the result committed, rolled back, or resumable?
 - What does the user see while it is failing, and what does support see?
+- Before fixing an HTTP status or error code in a Decision, check how comparable failures map today (which integrations return 502, which 500; whether conflicts become 409 or surface as 500) and cite it. One path with its own status for the same cause is an inconsistency, not a refinement.
 
 ## 6. Caching and invalidation
 

@@ -132,6 +132,8 @@ States: ⬜ pending · ✅ done · ⏸ skipped (say why) · 🗑️ dropped (say
 
 `Done when` names something a reviewer can verify without asking you: a test that asserts the behaviour, a command that passes, a value visible in the data. "Works as described" is not a criterion.
 
+Keep manual checks (a UAT run, a sandbox probe, a CRM-side confirmation) out of a code item's `Done when`. Each one is its own Rollout row with a human owner (`⬜ owner: <name>`), placed after the item it verifies. A code item can then be closed on evidence the implementer can produce, and the manual step stays visibly open instead of being ticked along with the code.
+
 Items are changes to the repo: code, tests, plans, specs. Communication (a ticket reply, a Slack ping) is the user's to send, so it never becomes a Rollout item.
 
 ## Open
