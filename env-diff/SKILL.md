@@ -54,12 +54,12 @@ Markdown in chat, in English:
 
 ### server
 ➕ Add
-- [ ] `SAMSUNG_API_URL` — required in production, uri — Base URL of the Samsung Wallet Server API (PAS-175)
+- [ ] **`SAMSUNG_API_URL` — required in production**, uri — Base URL of the Samsung Wallet Server API (PAS-175)
 - [ ] `REGION` — optional, one of `eu-central-1`, `eu-west-1` — Deployment region identifier (PAS-31)
 ✏️ Rename
-- [ ] `DIGISIGN_WEBHOOK_SECRET_*` (5 vars) → `DIGISIGN_WEBHOOK_SECRET` — required in production; inferred from matching descriptions (ACLD-12)
+- [ ] **`DIGISIGN_WEBHOOK_SECRET_*` (5 vars) → `DIGISIGN_WEBHOOK_SECRET` — required in production**; inferred from matching descriptions (ACLD-12)
 🔧 Change
-- [ ] `SMTP_PORT` — optional → required in production (ACLD-9)
+- [ ] **`SMTP_PORT` — optional → required in production** (ACLD-9)
 ➖ Remove (after deploy)
 - [ ] `DB_DISABLE_MIGRATIONS` (PAS-120)
 
@@ -69,6 +69,7 @@ Markdown in chat, in English:
 ```
 
 - Section order per service: Add, Rename, Change, Remove — the order the user applies them in (removals wait until the new version is live, so a rollback still boots).
+- Within each section, list the required variables first (always, then in production) and bold the name plus the requiredness — they are the ones that break the boot if missed, so they must stand out at a glance. Optional ones follow in plain text.
 - Omit empty sections and services without changes.
 - The list is the whole output — no notes, summaries, deploy-blocker counts or "what I checked" sections. The validation runner already reports missing variables on deploy; the user needs the checklist, not commentary. Uncertainty goes inline on the affected line (e.g. "inferred from matching descriptions"), and only two things justify a one-line remark below the list: `HEAD` used because the tag does not exist yet, or a schema file you had to guess.
 - No changes at all → reply with one line: `No ENV changes v0.7.2 → v0.8.0.`
